@@ -5,6 +5,9 @@
 :- [codigoAuxiliar]. % Ficheiro dado. Não alterar.
 % Segue-se o código
 
+
+% Don't forget to add verifications for eh_coordenada and eh_tabuleiro or use structs.
+
 /* Visualização */
 
 % visualiza/1
@@ -37,21 +40,31 @@ visualizaLinha([H|T], Index) :-
 % passa a ter o objeto Objeto na coordenada (L, C), caso a célula
 % contivesse originalmente uma variável.
 insereObjecto((L, C), Tabuleiro, Objeto) :-
-  nth1(L, Tabuleiro, Linha),
-  nth1(C, Linha, Celula),
-  ( var(Celula) -> Celula = Objeto ; true ), !.
-insereObjecto(_, _, _).
+  (dentroLimites(Tabuleiro, (L, C)) -> 
+    nth1(L, Tabuleiro, Linha),
+    nth1(C, Linha, Celula),
+    (var(Celula) -> Celula = Objeto; true);
+  true).
 
 % insereVariosObjectos/3
 % Insere vários objetos em várias coordenadas do tabuleiro.
 % Recebe: Lista de Coordenadas (ListaCoords), Tabuleiro, Lista de Objetos(ListaObjs)
 % Retorna: True se ListaCoords for uma lista de coordenadas, ListaObjs uma lista de objetos
 % e Tabuleiro um tabuleiro que, após a aplicação deste predicado, passa a ter nas coordenadas
-% de ListaCoords os objetos de ListaObjs.
-insereVariosObjectos([], _, []).
-insereVariosObjectos([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
+% de ListaCoords os objetos de ListaObjs. Falha se as listas tiverem tamanhos diferentes.
+insereVariosObjectos(ListaCoords, Tabuleiro, ListaObjs) :-
+  length(ListaCoords, LenCoords),
+  length(ListaObjs, LenObjs),
+  (LenCoords =\= LenObjs -> fail;
+  % Usamos auxiliar de modo a verificar a condição de falha logo no ínicio e apenas uma vez.
+  insereVariosObjectosAux(ListaCoords, Tabuleiro, ListaObjs)).
+
+% insereVariosObjectosAux/3 (Aux)
+% Auxiliar para insereVariosObjectos/3 que assume que as listas têm o mesmo comprimento.
+insereVariosObjectosAux([], _, []).
+insereVariosObjectosAux([(L, C)|RemainingCoords], Tabuleiro, [Obj|RemainingObjs]) :-
   insereObjecto((L, C), Tabuleiro, Obj),
-  insereVariosObjectos(Coords, Tabuleiro, Objs).
+  insereVariosObjectosAux(RemainingCoords, Tabuleiro, RemainingObjs).
 
 % inserePontosVolta/2
 % Insere pontos nas células adjacentes à coordenada dada.
@@ -59,27 +72,27 @@ insereVariosObjectos([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
 % Retorna: True se Tabuleiro é um tabuleiro que, após a aplicação do predicado, passa a ter
 % pontos (p) nas células adjacentes às coordenadas (L, C) (cima, baixo, esquerda, direita e diagonais).
 inserePontosVolta(Tabuleiro, (L, C)) :-
-  adjacentes((L, C), Adjacentes),
-  include(dentro_limites(Tabuleiro), Adjacentes, AdjacentesValidos),
-  inserePontos(Tabuleiro, AdjacentesValidos).
+  adjacentes((L, C), Tabuleiro, Adjacentes),
+  inserePontos(Tabuleiro, Adjacentes).
 
-% adjacentes/2 (Aux)
-% Calcula as coordenadas adjacentes a uma dada coordenada.
-% Recebe: Coordenada (X, Y)
-% Retorna: True se Adjacentes é a lista de coordenadas adjacentes (cima, baixo, esquerda, direita e diagonais).
-adjacentes((L, C), Adjacentes) :-
-  findall((X, Y), (member((DX, DY), [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]), X #= L + DX, Y #= C + DY), Adjacentes),
-  Adjacentes \= [].
+% adjacentes/3 (Aux)
+% Calcula as coordenadas adjacentes a uma dada coordenada dentro dos limites do tabuleiro.
+% Recebe: Coordenada (X, Y), Tabuleiro, Adjacentes (Lista Vazia)
+% Retorna: True se Adjacentes é a lista de coordenadas adjacentes (cima, baixo, esquerda, direita e diagonais) dentro dos limites do Tabuleiro.
+adjacentes((L, C), Tabuleiro, Adjacentes) :-
+  findall((X, Y), 
+    (member((DX, DY), [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]), 
+    X is L + DX, Y is C + DY, dentroLimites(Tabuleiro, (X, Y))), Adjacentes).
 
-% dentro_limites/2 (Aux)
+% dentroLimites/2 (Aux)
 % Verifica se uma coordenada está dentro dos limites do tabuleiro.
 % Recebe: Tabuleiro (lista de listas), Coordenada (L, C)
 % Retorna: True se a Coordenada (L, C) está dentro dos limites do Tabuleiro.
-dentro_limites(Tabuleiro, (L, C)) :-
+dentroLimites(Tabuleiro, (L, C)) :-
   length(Tabuleiro, NumLinhas),
+  L > 0, L =< NumLinhas,
   nth1(1, Tabuleiro, Linha),
   length(Linha, NumColunas),
-  L > 0, L =< NumLinhas,
   C > 0, C =< NumColunas.
 
 % inserePontos/2
@@ -88,18 +101,16 @@ dentro_limites(Tabuleiro, (L, C)) :-
 % Retorna: True se ListaCoord for uma lista de coordenadas e Tabuleiro um tabuleiro que,
 % após a aplicação deste predicado, passa a ter nas coordenadas de ListaCoord pontos inseridos.
 inserePontos(Tabuleiro, ListaCoord) :-
-  maplist(inserePonto(Tabuleiro), ListaCoord).
+  maplist(inserePontosAux(Tabuleiro, p), ListaCoord).
 
-% inserePonto/2 (Aux)
-% Insere um ponto numa célula do tabuleiro se a célula estiver vazia.
-% Recebe: Tabuleiro (Tabuleiro), Coordenada (Coordenada)
-% Retorna: True se Coordenada for uma coordenada válida e Tabuleiro um tabuleiro que,
-% após a aplicação deste predicado, passa a ter na coordenada especificada um ponto inserido,
-% caso a célula esteja vazia.
-inserePonto(Tabuleiro, (L, C)) :-
-  nth1(L, Tabuleiro, Linha),
-  nth1(C, Linha, Celula),
-  ( var(Celula) -> Celula = p ; true ).
+% inserePontosAux/3 (Aux)
+% Auxiliar para inserePontos/2 que insere um ponto numa célula do tabuleiro.
+% Recebe: Tabuleiro, Ponto, (Linha, Coluna)
+% Retorna: True se Tabuleiro é um tabuleiro que após a aplicação deste predicado
+% passa a ter o ponto Ponto na coordenada (L, C), caso a célula
+% contivesse originalmente uma variável.
+inserePontosAux(Tabuleiro, Ponto, (L, C)) :-
+  insereObjecto((L, C), Tabuleiro, Ponto).
 
 
 /* Consultas */
@@ -111,7 +122,7 @@ inserePonto(Tabuleiro, (L, C)) :-
 % e Objetos uma lista de objetos que correspondem às coordenadas fornecidas.
 objectosEmCoordenadas([], _, []).
 objectosEmCoordenadas([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
-  dentro_limites(Tabuleiro, (L, C)),
+  dentroLimites(Tabuleiro, (L, C)),
   nth1(L, Tabuleiro, Linha),
   nth1(C, Linha, Obj),
   objectosEmCoordenadas(Coords, Tabuleiro, Objs).
@@ -121,11 +132,9 @@ objectosEmCoordenadas([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
 % Recebe: Objecto, Tabuleiro, Lista de Coordenadas (ListaCoords)
 % Retorna: Lista de Coordenadas dos Objetos (ListaCoordObjs) e Número de Objetos (NumObjectos)
 coordObjectos(Objecto, Tabuleiro, ListaCoords, ListaCoordObjs, NumObjectos) :-
-  findall((L, C), (
-    member((L, C), ListaCoords),
-    nth1(L, Tabuleiro, Linha),
-    nth1(C, Linha, Celula),
-    (Celula == Objecto ; (var(Objecto), var(Celula)))
+  findall((L, C), (member((L, C), ListaCoords),
+    nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula),
+    (Celula == Objecto; (var(Objecto), var(Celula)))
   ), ListaCoordObjs),
   length(ListaCoordObjs, NumObjectos).
 
@@ -135,4 +144,3 @@ coordObjectos(Objecto, Tabuleiro, ListaCoords, ListaCoordObjs, NumObjectos) :-
 % Retorna: Lista de Coordenadas das células vazias (ListaVars)
 coordenadasVars(Tabuleiro, ListaVars) :-
   findall((L, C), (nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula), var(Celula)), ListaVars).
-
