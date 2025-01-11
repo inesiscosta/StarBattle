@@ -5,9 +5,6 @@
 :- [codigoAuxiliar]. % Ficheiro dado. Não alterar.
 % Segue-se o código
 
-
-% Don't forget to add verifications for eh_coordenada and eh_tabuleiro or use structs.
-
 /* Visualização */
 
 % visualiza/1
@@ -117,7 +114,7 @@ inserePontosAux(Tabuleiro, Ponto, (L, C)) :-
 
 % objectosEmCoordenadas/3
 % Obtém os objetos nas coordenadas dadas do tabuleiro.
-% Recebe: Lista de Coordenadas (Coordenadas), Tabuleiro, Lista de Objetos (Objetos)
+% Recebe: Lista de Coordenadas, Tabuleiro, Lista de Objetos
 % Retorna: True se Coordenadas for uma lista de coordenadas, Tabuleiro um tabuleiro
 % e Objetos uma lista de objetos que correspondem às coordenadas fornecidas.
 objectosEmCoordenadas([], _, []).
@@ -134,7 +131,7 @@ objectosEmCoordenadas([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
 coordObjectos(Objecto, Tabuleiro, ListaCoords, ListaCoordObjs, NumObjectos) :-
   findall((L, C), (member((L, C), ListaCoords),
     nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula),
-    (Celula == Objecto; (var(Objecto), var(Celula)))
+    (Celula == Objecto; (var(Celula), var(Objecto)))
   ), ListaCoordObjs),
   length(ListaCoordObjs, NumObjectos).
 
@@ -144,3 +141,84 @@ coordObjectos(Objecto, Tabuleiro, ListaCoords, ListaCoordObjs, NumObjectos) :-
 % Retorna: Lista de Coordenadas das células vazias (ListaVars)
 coordenadasVars(Tabuleiro, ListaVars) :-
   findall((L, C), (nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula), var(Celula)), ListaVars).
+
+
+/* Estratégias */
+
+% fechaListaCoordenadas/2
+% Recebe: Tabuleiro, Lista de Coordenadas (ListaCoord)
+% Retorna: O tabuleiro com uma das seguintes estratégias aplicadas:
+% - h1: sempre que a linha, coluna ou região associada à lista de coordenadas tiver duas 
+%       estrelas, enche as restantes coordenadas de pontos;
+% - h2: sempre que a linha, coluna ou região associada à lista de coordenadas tiver uma
+%       única estrela e uma única posição livre, insere uma estrela na posição livre e
+%       insere pontos à volta da estrela;
+% - h3: sempre que a linha, coluna ou região associada à lista de coordenadas não tiver
+%       nenhuma estrela e tiver duas únicas posições livres, insere uma estrela em cada
+%       posição livre e insere pontos à volta de cada estrela inserida;
+fechaListaCoordenadas(Tabuleiro, ListaCoord) :-
+  coordObjectos('e', Tabuleiro, ListaCoord, _, NumObjectos),
+  coordObjectos(_, Tabuleiro, ListaCoord, ListaVars, NumVars),
+  (NumObjectos =:= 2 ->
+    inserePontos(Tabuleiro, ListaVars)
+  ; NumObjectos =:= 1 ->
+    (NumVars =:= 1 ->
+      nth1(1, ListaVars, Coord),
+      insereObjecto(Coord, Tabuleiro, 'e'),
+      inserePontosVolta(Tabuleiro, Coord)
+    ; true)
+  ; NumObjectos =:= 0 ->
+    (NumVars =:= 2 ->
+      insereVariosObjectos(ListaVars, Tabuleiro, ['e', 'e']),
+      nth1(1, ListaVars, Coord1),
+      inserePontosVolta(Tabuleiro, Coord1),
+      nth1(2, ListaVars, Coord2),
+      inserePontosVolta(Tabuleiro, Coord2)
+    ; true)
+  ; true).
+
+% fecha/2
+% Recebe: Tabuleiro, Lista de Listas de Coordenadas (ListaListasCoord)
+% Retorna: Aplica o predicado fechaListaCoordenadas a cada lista de ListaListasCoord.
+fecha(Tabuleiro, ListaListasCoord) :-
+  maplist(fechaListaCoordenadas(Tabuleiro), ListaListasCoord).
+
+
+% encontraSequencia/2
+% Recebe: Tabuleiro, tamanho da sequência (N), Lista de Coordenadas (ListaCoord)
+% Retorna: Sequencia (Seq)
+encontraSequencia(Tabuleiro, N, ListaCoords, Seq) :-
+  coordenadasVars(Tabuleiro, ListaVars),
+  intersection(ListaCoords, ListaVars, Seq),
+  length(Seq, SeqSize),
+  N = SeqSize.
+
+% aplicaPadraoI/2
+% Aplica o padrão I no tabuleiro, inserindo estrelas no inicio e fim da lista e
+% pontos nas coordenadas à volta das estrelas colocadas.
+% Recebe: Tabuleiro, Lista de Coordenadas de tamanho 3 [(L1, C1), (L2, C2), (L3, C3)]
+% Retorna: True se Tabuleiro passa a ter estrelas nas coordenadas (L1, C1) e (L3, C3)
+% e pontos nas coordenadas adjacentes.
+aplicaPadraoI(Tabuleiro, [(L1, C1), (L2, C2), (L3, C3)]) :-
+  encontraSequencia(Tabuleiro, 3, [(L1, C1), (L2, C2), (L3, C3)], _),
+  insereVariosObjectos([(L1, C1), (L3, C3)], Tabuleiro, ['e', 'e']),
+  maplist(inserePontosVolta(Tabuleiro), [(L1, C1), (L3, C3)]).
+
+% aplicaPadroes/2
+% Aplica os padrões I e T no tabuleiro, conforme o tamanho das sequências encontradas,
+% padrãoI no caso de tamanho 3, padrãoT no caso de tamanho 4.
+% Recebe: Tabuleiro, Lista de Listas de Coordenadas (ListaListaCoords)
+% Retorna: True se os predicados I ou T forem aplicados a cada lista de ListaListasCoords. 
+aplicaPadroes(Tabuleiro, ListaListaCoords) :-
+  maplist(aplicaPadrao(Tabuleiro), ListaListaCoords).
+
+% aplicaPadrao/2 (Aux)
+% Auxiliar para aplicaPadroes que aplica o padrão I ou T no tabuleiro, conforme o tamanho da sequência.
+% Recebe: Tabuleiro, Lista de Coordenadas (ListaCoords)
+% Retorna: True se Tabuleiro é um tabuleiro que, após a aplicação deste predicado, passa a ter
+% o padrão I ou T aplicado conforme o tamanho da sequência de coordenadas.
+aplicaPadrao(Tabuleiro, ListaCoords) :-
+  length(ListaCoords, Len),
+  (Len =:= 3 -> aplicaPadraoI(Tabuleiro, ListaCoords);
+  Len =:= 4 -> aplicaPadraoT(Tabuleiro, ListaCoords);
+  true).
