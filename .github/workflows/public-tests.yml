@@ -1,0 +1,23 @@
+name: Public Tests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install SWI-Prolog
+      run: sudo apt-get install -y swi-prolog
+
+    - name: Run public tests
+      run: swipl -l src/main.pl -g run_tests -t halt tests/public_tests.plt
