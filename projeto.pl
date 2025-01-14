@@ -1,7 +1,7 @@
 :- use_module(library(clpfd)). % para poder usar transpose/2
 :- set_prolog_flag(answer_write_options,[max_depth(0)]). % ver listas completas
-:- [puzzles]. % Ficheiro dado. A avaliação terá mais puzzles.
-:- [codigoAuxiliar]. % Ficheiro dado. Não alterar.
+:- [puzzles].
+:- [codigoAuxiliar].
 
 /* Visualização */
 
@@ -23,7 +23,7 @@ visualizaLinha(Linha) :- visualizaLinha(Linha, 1).
 visualizaLinha([], _).
 visualizaLinha([H|T], Index) :-
   % ~d - formata como inteiro, ~w fomato default, ~n new line.
-  format("~d: ~w~n", [Index, H]),
+  format("~d: ~w~n", [Index, H]), % O Copilot ensinou-me sobre ~w.
   NextIndex is Index + 1,
   visualizaLinha(T, NextIndex).
 
@@ -37,11 +37,11 @@ visualizaLinha([H|T], Index) :-
 % predicado passa a ter o objeto Objeto na coordenada (L, C), caso a célula
 % contivesse originalmente uma variável.
 insereObjecto((L, C), Tabuleiro, Objeto) :-
-  (dentroLimites(Tabuleiro, (L, C)) -> 
-    ehVar(Tabuleiro, (L, C)) -> 
-    nth1(L, Tabuleiro, Linha),
-    nth1(C, Linha, Objeto);
-  true).
+  % Se a coordenada estiver fora do tabuleiro o predicado não falha.
+  (\+ dentroLimites(Tabuleiro, (L, C)) -> true;
+  nth1(L, Tabuleiro, Linha),
+  nth1(C, Linha, Celula),
+  (var(Celula) -> Celula = Objeto; true)).
 
 % insereVariosObjectos/3
 % Insere vários objetos em várias coordenadas do tabuleiro.
@@ -85,6 +85,9 @@ inserePontosVolta(Tabuleiro, (L, C)) :-
 % Retorna: True se Adjacentes é a lista de coordenadas adjacentes
 % (cima, baixo, esquerda, direita e diagonais) dentro dos limites do Tabuleiro.
 adjacentes((L, C), Tabuleiro, Adjacentes) :-
+  % O Copilot ajudou-me a fazer debugging deste predicado, já tinha implementado
+  % uma função bastante semelhante em FP mas tive algumas dificuladaes a passar
+  % a lógica para código em prolog nomeadamente o LLM ajudou-me a usar o member/2.
   findall((X, Y), (member((DX, DY),
     [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)]),
     X is L + DX, Y is C + DY, dentroLimites(Tabuleiro, (X, Y))), Adjacentes).
@@ -107,16 +110,16 @@ dentroLimites(Tabuleiro, (L, C)) :-
 % um tabuleiro que, após a aplicação deste predicado, passa a ter nas
 % coordenadas de ListaCoord pontos inseridos.
 inserePontos(Tabuleiro, ListaCoord) :-
-  maplist(inserePonto(Tabuleiro, p), ListaCoord).
+  maplist(inserePonto(Tabuleiro), ListaCoord).
 
 % inserePonto/3 (Aux)
 % Auxiliar para inserePontos/2 que insere um ponto numa célula do tabuleiro.
-% Recebe: Tabuleiro, Ponto, (Linha, Coluna)
+% Recebe: Tabuleiro, Coord
 % Retorna: True se Tabuleiro é um tabuleiro que após a aplicação deste
-% predicado passa a ter o ponto Ponto na coordenada (L, C), caso a célula
+% predicado passa a ter um ponto na coordenada (Coord), caso a célula
 % contivesse originalmente uma variável.
-inserePonto(Tabuleiro, Ponto, (L, C)) :-
-  insereObjecto((L, C), Tabuleiro, Ponto).
+inserePonto(Tabuleiro, Coord) :-
+  insereObjecto(Coord, Tabuleiro, p).
 
 
 /* Consultas */
@@ -142,16 +145,18 @@ objectosEmCoordenadas([(L, C)|Coords], Tabuleiro, [Obj|Objs]) :-
 coordObjectos(Objecto, Tabuleiro, ListaCoords, ListaCoordObjs, NumObjectos) :-
   findall((L, C), (member((L, C), ListaCoords),
     nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula),
-    (Celula == Objecto; (var(Celula), var(Objecto)))), ListaCoordObjs),
+    (Celula == Objecto; (var(Celula), var(Objecto)))), ListaCoordObjsDesordenada),
+  sort(ListaCoordObjsDesordenada, ListaCoordObjs),
   length(ListaCoordObjs, NumObjectos).
 
 % coordenadasVars/2
-% Obtém as coordenadas das células vazias do tabuleiro.
+% Obtém as coordenadas das células vazias do tabuleiro e ordena por linha e coluna.
 % Recebe: Tabuleiro (Tabuleiro)
 % Retorna: Lista de Coordenadas das células vazias (ListaVars)
 coordenadasVars(Tabuleiro, ListaVars) :-
   findall((L, C), (nth1(L, Tabuleiro, Linha), nth1(C, Linha, Celula),
-    var(Celula)), ListaVars).
+    var(Celula)), VarsDesordenadas),
+  sort(VarsDesordenadas, ListaVars).
 
 
 /* Estratégias */
@@ -169,15 +174,19 @@ coordenadasVars(Tabuleiro, ListaVars) :-
 %       uma estrela em cada posição livre e insere pontos à volta de cada
 %       estrela inserida.
 fechaListaCoordenadas(Tabuleiro, ListaCoord) :-
+  % Neste predicado usei o Copilot para descobrir como se fazia um 
+  % if (implicação) sem ter de repetir o heading do predicado. Depois disso
+  % escrevi os outros if's no código sozinha e dei refactor para os predicados
+  % acima também usarem a mesma estratégia.
   coordObjectos(e, Tabuleiro, ListaCoord, _, NumEstrelas),
   coordObjectos(_, Tabuleiro, ListaCoord, ListaVars, NumVars),
-  (NumEstrelas =:= 2 ->
+  (NumEstrelas == 2 ->
     inserePontos(Tabuleiro, ListaVars)
-  ; NumEstrelas =:= 1, NumVars =:= 1 ->
+  ; NumEstrelas == 1, NumVars == 1 ->
     nth1(1, ListaVars, Coord),
     insereObjecto(Coord, Tabuleiro, e),
     inserePontosVolta(Tabuleiro, Coord)
-  ; NumEstrelas =:= 0, NumVars =:= 2 ->
+  ; NumEstrelas == 0, NumVars == 2 ->
     insereVariosObjectos(ListaVars, Tabuleiro, [e, e]),
     maplist(inserePontosVolta(Tabuleiro), ListaVars)
   ; true).
@@ -193,39 +202,19 @@ fecha(Tabuleiro, ListaListasCoord) :-
 % Recebe: Tabuleiro, tamanho da sequência (N),
 % Lista de Coordenadas (ListaCoord), Sequencia (Seq)
 % Retorna: True se Seq for uma sequência de tamanho N
-% de coordenadas de pontos ou variáveis.
+% de coordenadas de variáveis.
 encontraSequencia(Tabuleiro, N, ListaCoords, Seq) :-
-  maplist(ehVarOuPonto(Tabuleiro), ListaCoords),
-  include(ehVar(Tabuleiro), ListaCoords, Seq),
-  ehSubSequencia(ListaCoords, Seq), !,
-  length(Seq, N).
-
-% ehVar/2 (Aux)
-% Recebe: Tabuleiro, Coordenada
-% Devolve: True se na coordenada dada estiver uma variavel.
-ehVar(Tabuleiro, (L,C)) :-
-  nth1(L, Tabuleiro, Linha),
-  nth1(C, Linha, Celula),
-  var(Celula).
-
-% ehVarOuPonto/2 (Aux)
-% Recebe: Tabuleiro, Coordenada
-% Devolve: True se na coordenada dada estiver uma variavel ou um ponto.
-ehVarOuPonto(Tabuleiro, (L, C)) :-
-  dentroLimites(Tabuleiro, (L, C)),
-  nth1(L, Tabuleiro, Linha),
-  nth1(C, Linha, Celula),
-  (var(Celula); Celula == p).
-
-% ehSubSequencia/2
-% Recebe: Lista, SubLista
-% Retorna: True se SubLista for uma subsequência de Lista.
-ehSubSequencia(_, []).
-ehSubSequencia([], _) :- false.
-ehSubSequencia([Head|Tail], [Head|SubTail]) :-
-  ehSubSequencia(Tail, SubTail).
-ehSubSequencia([_|Tail], SubList) :-
-  ehSubSequencia(Tail, SubList).
+  % Neste predicado tentei usei o Copilot para 
+  coordObjectos(e, Tabuleiro, ListaCoords, _, NumEstrelas),
+  NumEstrelas == 0,
+  coordenadasVars(Tabuleiro, ListaVars),
+  % A ordem é importante ListaCoords tem de vir primeira na interseção para
+  % Seq manter a ordem de ListaCoords.
+  intersection(ListaCoords, ListaVars, Seq),
+  length(Seq, N),
+  % Verifica se Seq é uma subsequência contínua de ListaCoords.
+  append(_, OutraLista, ListaCoords),
+  append(Seq, _, OutraLista), !.
 
 % aplicaPadraoI/2
 % Aplica o padrão I no tabuleiro, inserindo estrelas no inicio e fim da lista e
@@ -234,8 +223,7 @@ ehSubSequencia([_|Tail], SubList) :-
 % [(L1, C1), (L2, C2), (L3, C3)]
 % Retorna: True se Tabuleiro passa a ter estrelas nas coordenadas
 % (L1, C1) e (L3, C3) e pontos nas coordenadas adjacentes.
-aplicaPadraoI(Tabuleiro, [(L1, C1), (L2, C2), (L3, C3)]) :-
-  encontraSequencia(Tabuleiro, 3, [(L1, C1), (L2, C2), (L3, C3)], _),
+aplicaPadraoI(Tabuleiro, [(L1, C1), (_, _), (L3, C3)]) :-
   insereVariosObjectos([(L1, C1), (L3, C3)], Tabuleiro, [e, e]),
   maplist(inserePontosVolta(Tabuleiro), [(L1, C1), (L3, C3)]).
 
@@ -246,42 +234,38 @@ aplicaPadraoI(Tabuleiro, [(L1, C1), (L2, C2), (L3, C3)]) :-
 % de listas de coordenadas, após a aplicação deste predicado ter-se-ão
 % encontrado sequências de tamanho 3 e aplicado o aplicaPadraoI/2, ou então
 % ter-se-ão encontrado sequências de tamanho 4 e aplicado o aplicaPadraoT/2.
-aplicaPadroes(Tabuleiro, ListaListaCoords) :-
-  maplist(aplicaPadroesAux(Tabuleiro), ListaListaCoords).
-
-% aplicaPadroesAux/2 (Aux)
-% Auxiliar para aplicaPadroes/2 que aplica os padrões I e T no tabuleiro.
-% Recebe: Tabuleiro, Lista de Coordenadas (ListaCoord)
-% Retorna: True se Tabuleiro for um tabuleiro e ListaCoord for umalista de
-% coordenadas, após a aplicação deste predicado ter-se-ão encontrado
-% sequências de tamanho 3 e aplicado o aplicaPadraoI/2, ou então ter-se-ão
-% encontrado sequências de tamanho 4 e aplicado o aplicaPadraoT/2.
-aplicaPadroesAux(Tabuleiro, ListaCoord) :-
-  (encontraSequencia(Tabuleiro, 3, ListaCoord, Seq3) ->
-  aplicaPadraoI(Tabuleiro, Seq3);
-  encontraSequencia(Tabuleiro, 4, ListaCoord, Seq4) ->
-  aplicaPadraoT(Tabuleiro, Seq4);
-  true).
-
+aplicaPadroes(_, []).
+% Tentei usar o Copilot neste predicado mas sem sucesso nenhum.
+aplicaPadroes(Tabuleiro, [ListaCoord|Resto]) :-
+  encontraSequencia(Tabuleiro, 3, ListaCoord, Seq),
+  aplicaPadraoI(Tabuleiro, Seq), !,
+  aplicaPadroes(Tabuleiro, Resto).
+aplicaPadroes(Tabuleiro, [ListaCoord|Resto]) :-
+  encontraSequencia(Tabuleiro, 4, ListaCoord, Seq),
+  aplicaPadraoT(Tabuleiro, Seq), !,
+  aplicaPadroes(Tabuleiro, Resto).
+aplicaPadroes(Tabuleiro, [_|Resto]) :- 
+  !, aplicaPadroes(Tabuleiro, Resto).
 
 /* Apoteose Final */
 
 % resolve/2
 % Resolve o puzzle StarBattle para o caso das duas estrelas.
 % Recebe: Estruturas (Regiões do Tabuleiro), Tabuleiro
-% Retorna: Tabuleiro resolvido ou o mais resolvido possível deterministicamente.
-resolve(Estruturas, Tabuleiro) :- 
-  copy_term(Tabuleiro, CopiaTabuleiro),
-  coordRegioes(Estruturas, CoordRegioes),
-  resolve(Estruturas, Tabuleiro, CopiaTabuleiro, CoordRegioes).
-
-resolve(Estruturas, Tabuleiro, PrevTabuleiro, CoordRegioes) :-
+% Retorna: Tabuleiro resolvido ou o mais resolvido possível usando as
+% estratégias préviamente implementadas.
+resolve(Estruturas, Tabuleiro) :-
   coordenadasVars(Tabuleiro, ListaVars),
-  \+ length(ListaVars, 0),
-  copy_term(Tabuleiro, NewPrevTabuleiro),
-  aplicaPadroes(Tabuleiro, CoordRegioes),
-  fecha(Tabuleiro, CoordRegioes),
-  \+ Tabuleiro == PrevTabuleiro, 
-  resolve(Estruturas, Tabuleiro, NewPrevTabuleiro).
-
-resolve(_,_,_).
+  length(ListaVars, NumVars),
+  % Se não houverem coordenadas livres o tabuleiro está completo
+  % e o predicado termina.
+  (NumVars == 0 -> true;
+    coordTodas(Estruturas, CT),
+    aplicaPadroes(Tabuleiro, CT),
+    fecha(Tabuleiro, CT),
+    % Se o número de variáveis não mudar após a aplicação de aplicaPadroes e 
+    % fecha então o tabuleiro já não sofre alterações e o predicado termina.
+    coordenadasVars(Tabuleiro, NovaListaVars),
+    length(NovaListaVars, NovoNumVars),
+    (NumVars == NovoNumVars -> true;
+    resolve(Estruturas, Tabuleiro))), !.
