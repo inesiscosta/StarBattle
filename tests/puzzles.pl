@@ -1,5 +1,4 @@
-% tabuleiro generico a preencher (dim 9)
-inicial(9, [
+initial(9, [
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _],
@@ -11,34 +10,31 @@ inicial(9, [
 [_, _, _, _, _, _, _, _, _]
 ]).      
 
-% tabuleiro inicial ja com algum preenchimento (aplicar ao 9-2)
-inicial(9-2-1, [
+initial(9-2-1, [
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, p, p, p, _],
-[_, _, _, _, _, p, e, p, _],
+[_, _, _, _, _, p, s, p, _],
 [_, _, _, _, _, p, p, p, _],
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _],
 [_, _, _, _, _, _, _, _, _]
 ]).
 
-% tabuleiro inicial ja com algum preenchimento (aplicar ao 9-24)
-inicial(9-24-1, [
-[_, _, _, p, e, p, _, _, _],
+initial(9-24-1, [
+[_, _, _, p, s, p, _, _, _],
 [_, _, _, p, p, p, p, p, p],
-[_, _, _, _, _, _, p, e, p],
+[_, _, _, _, _, _, p, s, p],
 [_, _, _, _, _, _, p, p, p],
 [_, _, _, p, p, p, _, _, _],
-[p, p, _, p, e, p, _, _, _],
-[e, p, p, p, p, p, _, _, _],
-[p, p, p, e, p, _, _, _, _],
+[p, p, _, p, s, p, _, _, _],
+[s, p, p, p, p, p, _, _, _],
+[p, p, p, s, p, _, _, _, _],
 [_, _, p, p, p, _, _, _, _]
 ]).            
-% Estrutura
 
-regioes(9-1, [
+regions(9-1, [
 [1, 1, 1, 2, 2, 2, 2, 2, 2],
 [1, 3, 3, 2, 2, 2, 2, 2, 2],
 [3, 3, 3, 3, 4, 4, 4, 4, 5],
@@ -50,7 +46,7 @@ regioes(9-1, [
 [9, 9, 9, 6, 6, 6, 7, 8, 4]]
 ).
 
-regioes(9-2, [
+regions(9-2, [
 [1, 1, 1, 1, 2, 2, 3, 3, 3],
 [1, 1, 4, 1, 2, 2, 2, 2, 5],
 [1, 1, 4, 4, 6, 2, 2, 2, 5],
@@ -62,7 +58,7 @@ regioes(9-2, [
 [7, 7, 7, 9, 9, 9, 5, 5, 5]]
 ).
 
-regioes(9-24, [
+regions(9-24, [
 [1, 1, 1, 1, 2, 2, 2, 2, 3],
 [1, 1, 1, 1, 3, 3, 3, 3, 3],
 [1, 1, 1, 1, 3, 3, 4, 4, 4],
@@ -74,56 +70,54 @@ regioes(9-24, [
 [5, 5, 9, 9, 9, 9, 9, 9, 9]]
 ).
 
-regioes(4-1, [
+regions(4-1, [
 [1, 1, 1, 1],
 [1, 2, 1, 1],
 [1, 2, 1, 1],
 [2, 2, 1, 1]]
 ).
 
-regioes(4-2, [
+regions(4-2, [
 [1, 1, 1, 1],
 [1, 2, 2, 2],
 [1, 1, 1, 2],
 [1, 1, 1, 1]]
 ).
 
-regioes(4-3, [
+regions(4-3, [
 [2, 2, 1, 1],
 [1, 2, 1, 1],
 [1, 2, 1, 1],
 [1, 1, 1, 1]]
 ).
 
-regioes(4-4, [
+regions(4-4, [
 [2, 1, 1, 1],
 [2, 2, 2, 1],
 [2, 1, 1, 1],
 [1, 1, 1, 1]]
 ).
 
-% Solucao (p para ponto e para estrela)
-
 sol(9-1, [
-[p, p, e, p, e, p, p, p, p],
-[e, p, p, p, p, p, e, p, p],
-[p, p, p, p, e, p, p, p, e],
-[p, e, p, p, p, p, e, p, p],
-[p, p, p, e, p, p, p, p, e],
-[p, e, p, p, p, e, p, p, p],
-[p, p, p, e, p, p, p, e, p],
-[e, p, p, p, p, e, p, p, p],
-[p, p, e, p, p, p, p, e, p]]
+[p, p, s, p, s, p, p, p, p],
+[s, p, p, p, p, p, s, p, p],
+[p, p, p, p, s, p, p, p, s],
+[p, s, p, p, p, p, s, p, p],
+[p, p, p, s, p, p, p, p, s],
+[p, s, p, p, p, s, p, p, p],
+[p, p, p, s, p, p, p, s, p],
+[s, p, p, p, p, s, p, p, p],
+[p, p, s, p, p, p, p, s, p]]
 ).
 
 sol(9-2, [
-[p, p, p, p, p, p, e, p, e],
-[e, p, e, p, p, p, p, p, p],
-[p, p, p, p, e, p, p, e, p],
-[e, p, e, p, p, p, p, p, p],
-[p, p, p, p, e, p, e, p, p],
-[p, e, p, p, p, p, p, p, e],
-[p, p, p, e, p, e, p, p, p],
-[p, e, p, p, p, p, p, e, p],
-[p, p, p, e, p, e, p, p, p]]
+[p, p, p, p, p, p, s, p, s],
+[s, p, s, p, p, p, p, p, p],
+[p, p, p, p, s, p, p, s, p],
+[s, p, s, p, p, p, p, p, p],
+[p, p, p, p, s, p, s, p, p],
+[p, s, p, p, p, p, p, p, s],
+[p, p, p, s, p, s, p, p, p],
+[p, s, p, p, p, p, p, s, p],
+[p, p, p, s, p, s, p, p, p]]
 ).
